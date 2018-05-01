@@ -23,6 +23,7 @@
  */
 package com.rackspace.jenkins_nodepool;
 
+import com.rackspace.jenkins_nodepool.views.NodePoolJobHistory;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.model.Label;
@@ -56,6 +57,8 @@ public class NodePools extends GlobalConfiguration implements Iterable<NodePool>
     }
 
     private List<NodePool> nodePools;
+
+    private transient final NodePoolJobHistory jobHistory = new NodePoolJobHistory();
 
     public NodePools() {
         load();
@@ -128,8 +131,11 @@ public class NodePools extends GlobalConfiguration implements Iterable<NodePool>
      * @throws Exception                   if an error occurs managing the provision components
      */
     public void provisionNode(Label label, Task task) throws IllegalArgumentException, Exception {
+
+        final NodePoolJob job = new NodePoolJob(task);
+
         for (NodePool np : nodePoolsForLabel(label)) {
-            np.provisionNode(label, task);
+            np.provisionNode(label, job);
             // Prevent multiple nodes being provisioned if label prefixes were to overlap.
             break;
         }
@@ -142,5 +148,9 @@ public class NodePools extends GlobalConfiguration implements Iterable<NodePool>
 
     public Stream<NodePool> stream() {
         return nodePools.stream();
+    }
+
+    public NodePoolJobHistory getJobHistory() {
+        return jobHistory;
     }
 }

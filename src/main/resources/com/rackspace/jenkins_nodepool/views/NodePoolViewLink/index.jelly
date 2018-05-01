@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials" xmlns:st="jelly:stapler" xmlns:d="jelly:define">
+
+
+    Jenkins job view:
+    <p>
+        <j:set var="jobHistory" value="${it.jobHistory}"/>
+        History: ${jobHistory}<br/>
+        <j:forEach var="job" items="${jobHistory.allJobs}">
+            Job ${job}<br/>
+        </j:forEach>
+    </p>
+
+
+    TODO show recent jenkins jobs serviced by nodepool
+    1. job name and number
+    2. nodepool request
+    3. time waited for request fulfillment
+    4. failure(s)
+    5. status / stuck / done / whatever
+
+    NodePool:
+    <j:forEach var="nodePool" items="${it.nodePools}">
+        NodePool ${i}<br/>
+
+        1. NP health
+        2. NP stats
+            a. num nodes used
+        3. errors
+        4. connectivity to zk status
+        5. NP info
+    </j:forEach>
+</j:jelly>

@@ -78,6 +78,9 @@ public class NodePool implements Describable<NodePool> {
 
     private static final Logger LOG = Logger.getLogger(NodePool.class.getName());
 
+    // maximum number of times provisioning a node will be tried for a given task
+    private static final int MAX_ATTEMPTS = 3;
+
     /**
      * Create a curator managed connection to ZooKeeper
      *
@@ -386,24 +389,26 @@ public class NodePool implements Describable<NodePool> {
      * label. Uses a default timeout of 60 seconds.
      *
      * @param label the label attribute to filter the list of available nodes
-     * @param task  the task to execute
+     * @param job  the job to execute
      * @throws IllegalArgumentException if timeout is less than 1 second
      * @throws Exception                if an error occurs managing the provision components
      */
-    public void provisionNode(Label label, Task task) throws Exception {
-        provisionNode(label, task, requestTimeout);
+    public void provisionNode(Label label, NodePoolJob job) throws Exception {
+        provisionNode(label, job, requestTimeout, MAX_ATTEMPTS);
     }
 
     /**
      * Submit request for node(s) required to execute the given task.
      *
      * @param label        Jenkins label
-     * @param task         task/build being executed
+     * @param job         job/task/build being executed
      * @param timeoutInSec the timeout in seconds to provision the node(s)
+     * @param maxAttempts maximum number of times to try to provision the node
      * @throws IllegalArgumentException if timeout is less than 1 second
-     * @throws Exception                if an error occurs managing the provision components
+     * @throws NodePoolException                if an error occurs managing the provision components
      */
-    void provisionNode(Label label, Task task, int timeoutInSec) throws Exception {
+    void provisionNode(Label label, NodePoolJob job, int timeoutInSec,
+                       int maxAttempts) throws NodePoolException {
 
         if (timeoutInSec < 1) {
             throw new IllegalArgumentException("Timeout value is less than 1 second: " + timeoutInSec);
@@ -411,10 +416,31 @@ public class NodePool implements Describable<NodePool> {
 
         initTransients();
 
-        // *** Request Node ***
+        for (int i = 0; i < maxAttempts; i++) {
+            try {
+                job.addAttempt();
+                tryProvisionNode(label, job, timeoutInSec, maxAttempts);
+
+            } catch (Exception e) {
+                LOG.log(Level.WARNING, "Node provisioning attempt for task :" + job.getTask().getName()
+                        + " failed.", e);
+                job.failAttempt(e);
+            }
+        }
+
+        throw new NodePoolException("Maximum attempts exceeded trying to provision a node for task "
+                + job.getTask());
+
+    }
+
+    private void tryProvisionNode(Label label, NodePoolJob job, int timeoutInSec, int maxAttempts)
+            throws Exception {
+
         //TODO: store prefix in config and pass in.
+        Task task = job.getTask();
         final NodeRequest request = new NodeRequest(this, task);
         requests.add(request);
+        job.setRequest(request);
 
         List<NodePoolNode> allocatedNodes = null;
 
